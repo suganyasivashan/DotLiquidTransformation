@@ -1,54 +1,44 @@
+using System;
 using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Net;
+using System.Linq;
 using DotLiquid;
 using System.Text;
-using System;
-using Microsoft.Extensions.Logging;
+
 namespace DotLiquidTransformation
 {
-    public static class LiquidTransformer
+    public static class XSLTTransformation
     {
-        /// <summary>
-        /// Converts Json to XML using a Liquid mapping. The filename of the liquid map needs to be provided in the path. 
-        /// The tranformation is executed with the HTTP request body as input.
-        /// </summary>
-        /// <param name="req"></param>
-        /// <param name="inputBlob"></param>
-        /// <param name="log"></param>
-        /// <returns></returns>
-        [FunctionName("LiquidTransformer")]
+        [FunctionName("XSLTTransformation")]
         public static async Task<HttpResponseMessage> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequestMessage req,
-            [Blob("liquid-transforms/LiquidTemp.liquid", FileAccess.Read)]Stream inputBlob, ILogger log)
+            [Blob("xslt-transforms/samplexslt.xslt", FileAccess.Read)] Stream inputblob, ILogger log)
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
-
-            if (inputBlob == null)
+            if (inputblob == null)
             {
                 log.LogError("inputBlog null");
-                return req.CreateErrorResponse(HttpStatusCode.NotFound, "Liquid transform not found");
+                return req.CreateErrorResponse(HttpStatusCode.NotFound, "XSLT transform not found");
             }
-
-            // This indicates the response content type. If set to application/json it will perform additional formatting
-            // Otherwise the Liquid transform is returned unprocessed.
             string requestContentType = req.Content.Headers.ContentType.MediaType;
             string responseContentType = req.Headers.Accept.FirstOrDefault().MediaType;
-            
 
-            // Load the Liquid transform in a string
-            var sr = new StreamReader(inputBlob);
-            var liquidTransform = sr.ReadToEnd();
+            var sr = new StreamReader(inputblob);
+            var xsltTransform = sr.ReadToEnd();
 
             var contentReader = ContentFactory.GetContentReader(requestContentType);
             var contentWriter = ContentFactory.GetContentWriter(responseContentType);
 
             Hash inputHash;
-
             try
             {
                 inputHash = await contentReader.ParseRequestAsync(req.Content);
@@ -68,12 +58,12 @@ namespace DotLiquidTransformation
 
             try
             {
-                template = Template.Parse(liquidTransform);
+                template = Template.Parse(xsltTransform);
             }
             catch (Exception ex)
             {
                 log.LogError(ex.Message, ex);
-                return req.CreateErrorResponse(HttpStatusCode.InternalServerError, "Error parsing Liquid template", ex);
+                return req.CreateErrorResponse(HttpStatusCode.InternalServerError, "Error parsing XSLT template", ex);
             }
 
             string output = string.Empty;
@@ -85,18 +75,18 @@ namespace DotLiquidTransformation
             catch (Exception ex)
             {
                 log.LogError(ex.Message, ex);
-                return req.CreateErrorResponse(HttpStatusCode.InternalServerError, "Error rendering Liquid template", ex);
+                return req.CreateErrorResponse(HttpStatusCode.InternalServerError, "Error rendering XSLT template", ex);
             }
 
             if (template.Errors != null && template.Errors.Count > 0)
             {
                 if (template.Errors[0].InnerException != null)
                 {
-                    return req.CreateErrorResponse(HttpStatusCode.InternalServerError, $"Error rendering Liquid template: {template.Errors[0].Message}", template.Errors[0].InnerException);
+                    return req.CreateErrorResponse(HttpStatusCode.InternalServerError, $"Error rendering XSLT template: {template.Errors[0].Message}", template.Errors[0].InnerException);
                 }
                 else
                 {
-                    return req.CreateErrorResponse(HttpStatusCode.InternalServerError, $"Error rendering Liquid template: {template.Errors[0].Message}");
+                    return req.CreateErrorResponse(HttpStatusCode.InternalServerError, $"Error rendering XSLT template: {template.Errors[0].Message}");
                 }
             }
 
