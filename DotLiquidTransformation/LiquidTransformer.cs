@@ -23,29 +23,37 @@ namespace DotLiquidTransformation
         /// <returns></returns>
         [FunctionName("LiquidTransformer")]
         public static async Task<HttpResponseMessage> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequestMessage req,
-            [Blob("liquid-transforms/LiquidTemp.liquid", FileAccess.Read)]Stream inputBlob, ILogger log)
+            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequestMessage req, ILogger log)
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
-
-            if (inputBlob == null)
-            {
-                log.LogError("inputBlog null");
-                return req.CreateErrorResponse(HttpStatusCode.NotFound, "Liquid transform not found");
-            }
+           
 
             // This indicates the response content type. If set to application/json it will perform additional formatting
             // Otherwise the Liquid transform is returned unprocessed.
             string requestContentType = req.Content.Headers.ContentType.MediaType;
+            log.LogInformation("content type header accepted");
             string responseContentType = req.Headers.Accept.FirstOrDefault().MediaType;
-            
+            log.LogInformation("accept header accepted");
+            string transformtype = req.Headers.GetValues("Transform-Type").First();
+            log.LogInformation("tranform type header accepted");
+            string transformlocation = req.Headers.GetValues("Transform-location").First();
+            log.LogInformation("location accepted");
+
+
 
             // Load the Liquid transform in a string
-            var sr = new StreamReader(inputBlob);
-            var liquidTransform = sr.ReadToEnd();
+            //var sr = new StreamReader(inputBlob);
+            //var liquidTransform = sr.ReadToEnd();
+
+            var sr = new StreamReader(transformlocation);
+            var liquidtransform = sr.ReadToEnd();
 
             var contentReader = ContentFactory.GetContentReader(requestContentType);
             var contentWriter = ContentFactory.GetContentWriter(responseContentType);
+            var ttype = ContentFactory.GetContentReader(transformtype);
+            var tloc = ContentFactory.GetContentReader(transformlocation);
+
+           
 
             Hash inputHash;
 
@@ -68,7 +76,7 @@ namespace DotLiquidTransformation
 
             try
             {
-                template = Template.Parse(liquidTransform);
+                template = Template.Parse(liquidtransform);
             }
             catch (Exception ex)
             {
